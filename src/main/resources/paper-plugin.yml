@@ -1,0 +1,4 @@
+name: AiChatBuddy
+version: '1.1'
+main: io.github.mrgucci1.aiChatBuddy.AiChatBuddy
+api-version: '1.21'

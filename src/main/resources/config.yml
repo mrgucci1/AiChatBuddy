@@ -1,0 +1,13 @@
+# AiChatBuddy Configuration
+
+# Required: Your Google Gemini API key
+api-key: ""
+
+# Optional: The prompt template for the AI (use %s for the user's question)
+prompt-template: "You are an AI assistant responding to questions within a Minecraft chat environment. 
+                  Please keep your answers concise, informative, and relevant to the context. 
+                  Do not include images, links, or any other content that cannot be displayed in chat. 
+                  Question: %s"
+
+# Optional: The API URL (only change if using a custom endpoint)
+api-url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
