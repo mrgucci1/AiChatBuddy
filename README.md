@@ -1,6 +1,6 @@
-# AiChatBuddy
+# AskChat
 
-AiChatBuddy is a Minecraft plugin that allows players to interact with Google's Gemini Pro AI directly in the game chat. Simply type `!ask` followed by your question, and the AI will provide a helpful response.
+AskChat is a Minecraft plugin that allows players to interact with Google's Gemini Pro AI directly in the game chat. Simply type `!ask` followed by your question, and the AI will provide a helpful response.
 
 ## Examples
 
@@ -20,15 +20,16 @@ AiChatBuddy is a Minecraft plugin that allows players to interact with Google's 
 
 ## Installation
 
-1. **Download:** Get the latest `AiChatBuddy.jar` file from the [Releases](link-to-your-releases-page) section.
-2. **Install:** Place the JAR file in your Minecraft server's `plugins` folder.
-3. **Configure:** Edit the `config.yml` file in the plugin's folder:
+1. **Obtain a Google Gemini API Key:** Follow the instructions at [https://ai.google.dev/gemini-api/docs/api-key](https://ai.google.dev/gemini-api/docs/api-key) to obtain your API key. 
+2. **Download:** Get the latest `AiChatBuddy.jar` file from the [Releases](link-to-your-releases-page) section.
+3. **Install:** Place the JAR file in your Minecraft server's `plugins` folder.
+4. **Configure:** Edit the `config.yml` file in the plugin's folder:
     * **`api-key`:**  Enter your Google Gemini Pro API key.
     * **`prompt-template`:** (Optional) Customize the AI's prompt.
     * **`api-url`:** (Optional) Modify the API endpoint if needed.
     * **`bot-name`:**  Choose the name for the AI in chat (default: "Notch").
     * **`private-questions`:** (Optional) Set to `true` for private responses (default: `false`). 
-4. **Restart:** Restart your server to enable the plugin.
+5. **Restart:** Restart your server to enable the plugin.
 
 ## Usage
 
