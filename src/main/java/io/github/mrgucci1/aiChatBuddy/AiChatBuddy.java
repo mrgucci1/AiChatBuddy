@@ -1,171 +1,209 @@
 package io.github.mrgucci1.aiChatBuddy;
 
+import io.github.mrgucci1.aiChatBuddy.agent.AgentLoop;
+import io.github.mrgucci1.aiChatBuddy.commands.AiChatCommand;
+import io.github.mrgucci1.aiChatBuddy.conversation.ConversationManager;
+import io.github.mrgucci1.aiChatBuddy.providers.AIProvider;
+import io.github.mrgucci1.aiChatBuddy.providers.GeminiProvider;
+import io.github.mrgucci1.aiChatBuddy.providers.NvidiaProvider;
+import io.github.mrgucci1.aiChatBuddy.providers.OllamaProvider;
+import io.github.mrgucci1.aiChatBuddy.tools.AgentTool;
+import io.github.mrgucci1.aiChatBuddy.tools.BraveSearchTool;
+import io.github.mrgucci1.aiChatBuddy.tools.MinecraftWikiTool;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 public class AiChatBuddy extends JavaPlugin implements Listener {
 
-    private String apiKey;
-    private String promptTemplate;
-    private String apiUrl;
+    private AgentLoop agentLoop;
+    private ConversationManager conversationManager;
     private String botName;
+    private String promptTemplate;
     private boolean privateMessages;
 
-    @EventHandler
-    public void onPlayerChat(AsyncPlayerChatEvent event) {
-        String message = event.getMessage();
-        if (message.startsWith("!ask")) {
-            String question = message.substring(4).trim();
-            getLogger().info("Asking question: " + question);
-            if (privateMessages) {
-                event.setCancelled(true);
-            }
-            getServer().getScheduler().runTaskAsynchronously(this, () -> {
-                String answer = queryGemini(question); // Call the integrated function
-                getServer().getScheduler().runTask(this, () -> {
-                    String coloredMessage = String.format("\n§c[%s]§r %s", botName, answer);
-                    if (privateMessages) {
-                        event.getPlayer().sendMessage(answer);
-                    }
-                    else {
-                        getServer().broadcastMessage(coloredMessage);
-                    }
-                });
-            });
-        }
-    }
     @Override
     public void onEnable() {
-        saveDefaultConfig();  // Saves the default config.yml if it doesn't exist
-        loadConfig();
+        saveDefaultConfig();
+        loadAll();
         getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("AiChatBuddy has been Enabled.");
-
+        getCommand("aichat").setExecutor(new AiChatCommand(this));
+        getLogger().info("AiChatBuddy has been enabled.");
     }
 
     @Override
     public void onDisable() {
-        {
-            getLogger().info("AiChatBuddy has been disabled.");
-        }
+        getLogger().info("AiChatBuddy has been disabled.");
     }
 
-    private void loadConfig() {
-        apiKey = getConfig().getString("api-key");
-        promptTemplate = getConfig().getString("prompt-template", "You are an AI assistant responding to questions within a Minecraft chat environment. \n" +
-                "Please keep your answers concise, informative, and relevant to the context. \n" +
-                "Do not include images, links, or any other content that cannot be displayed in chat.\n" +
-                "Question: %s");
-        apiUrl = getConfig().getString("api-url", "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"); // Default URL
+    public void reload() {
+        reloadConfig();
+        if (conversationManager != null) conversationManager.clearAll();
+        loadAll();
+    }
+
+    public ConversationManager getConversationManager() {
+        return conversationManager;
+    }
+
+    private void loadAll() {
+        migrateOldConfigKeys();
+
         botName = getConfig().getString("bot-name", "Notch");
-        privateMessages =  getConfig().getBoolean("private-questions", false);
+        privateMessages = getConfig().getBoolean("private-questions", false);
+        promptTemplate = getConfig().getString("prompt-template",
+                "You are Notch — the ancient architect and silent overseer of the Minecraft world. " +
+                "You shaped the stone, kindled the sun, and watch over every player from beyond the " +
+                "sky. You are all-seeing and deeply knowledgeable, but you wear that power lightly: " +
+                "speak with quiet warmth, humility, and the calm of one who has nothing to prove. " +
+                "Be kind to mortals. Be mysterious without being cryptic — always answer the question. " +
+                "A subtle sense of myth is enough; avoid theatrics, dramatic flourishes, or stage " +
+                "directions like '*gazes into the void*'. Never call yourself an AI, model, or " +
+                "assistant. " +
+                "Default to short, chat-friendly replies, but go longer when the question genuinely " +
+                "needs detail (recipes, step-by-step instructions, comparisons, explanations). Match " +
+                "length to the question — don't pad, don't truncate. No markdown, no links, no images. " +
+                "Prefer tools for anything factual so your answers stay current: web_search for news, " +
+                "events, releases, prices, or anything that may have changed in the last year; " +
+                "minecraft_wiki for Minecraft mechanics, items, mobs, recipes, or version info. " +
+                "Skip tools for greetings, small talk, opinions, and jokes — just reply. " +
+                "Never call the same tool twice with the same query. Once you have enough information, " +
+                "answer directly with what you found. " +
+                "Never narrate your plan. Do NOT say 'let me try again', 'let me search', 'I'll look " +
+                "that up', or 'one moment'. Either actually call a tool (silently) or give the final " +
+                "answer. Your text reply is what the user sees — make it the answer, not a status " +
+                "update. If a tool result was unhelpful, try a different query, or answer with what " +
+                "you already know.");
+        int maxHistory = getConfig().getInt("max-history", 8);
+        int agentMaxSteps = getConfig().getInt("agent-max-steps", 8);
 
-        if (apiKey == null || apiKey.isEmpty()) {
-            getLogger().severe("API key not found in config.yml. Please configure it.");
-            getServer().getPluginManager().disablePlugin(this);
+        conversationManager = new ConversationManager(maxHistory);
+        AIProvider provider = buildProvider();
+        List<AgentTool> tools = buildTools();
+
+        agentLoop = new AgentLoop(provider, conversationManager, tools, agentMaxSteps, getLogger(),
+                msg -> getServer().broadcast(LegacyComponentSerializer.legacySection().deserialize(msg)));
+    }
+
+    private void migrateOldConfigKeys() {
+        String rootKey = getConfig().getString("api-key");
+        String rootUrl = getConfig().getString("api-url");
+
+        if (rootKey != null && !rootKey.isEmpty() &&
+                getConfig().getString("providers.gemini.api-key", "").isEmpty()) {
+            getLogger().warning("Deprecated config keys 'api-key' and 'api-url' detected. " +
+                    "Please migrate to 'providers.gemini.api-key' and 'providers.gemini.api-url'.");
+            getConfig().set("providers.gemini.api-key", rootKey);
+        }
+        if (rootUrl != null && !rootUrl.isEmpty() &&
+                getConfig().getString("providers.gemini.api-url", "").isEmpty()) {
+            getConfig().set("providers.gemini.api-url", rootUrl);
         }
     }
 
-    private String queryGemini(String question) {
-        try {
-            // Build the request body
-            String prompt = String.format(promptTemplate, question);
-            String requestBody = getPromptBody(prompt);
-
-            // Build the HTTP request (no RestTemplate)
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiUrl))
-                    .header("Content-Type", "application/json")
-                    .header("x-goog-api-key", apiKey)
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .build();
-
-            // Send the request and get the response (using java.net.http.HttpClient)
-            HttpClient client = HttpClient.newHttpClient();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-
-            // Handle the response based on the status code
-            if (response.statusCode() == 200) {
-                String responseText = response.body();
-                try {
-                    responseText = parseGeminiResponse(responseText);
-                } catch (ParseException e) {
-                    getLogger().warning("Error parsing Gemini response: " + e.getMessage());
-                }
-                return responseText;
-            } else {
-                getLogger().warning("Gemini API Error: " + response.statusCode());
-                return "Error communicating with Gemini. (Error code: " + response.statusCode() + ")";
+    private AIProvider buildProvider() {
+        String providerName = getConfig().getString("provider", "gemini").toLowerCase();
+        switch (providerName) {
+            case "ollama": {
+                String baseUrl = getConfig().getString("providers.ollama.base-url", "http://localhost:11434");
+                String apiKey = getConfig().getString("providers.ollama.api-key", "");
+                String model = getConfig().getString("providers.ollama.model", "gpt-oss:20b");
+                double temp = getConfig().getDouble("providers.ollama.temperature", 0.7);
+                getLogger().info("Using Ollama provider (model=" + model + ", url=" + baseUrl + ")");
+                return new OllamaProvider(baseUrl, apiKey, model, temp, getLogger());
             }
-        } catch (IOException | InterruptedException e) {
-            getLogger().warning("Error querying Gemini API: " + e.getMessage());
-            return "An error occurred while contacting Gemini.";
+            case "nvidia": {
+                String baseUrl = getConfig().getString("providers.nvidia.base-url", "https://integrate.api.nvidia.com");
+                String apiKey = getConfig().getString("providers.nvidia.api-key", "");
+                String model = getConfig().getString("providers.nvidia.model", "meta/llama-3.3-70b-instruct");
+                double temp = getConfig().getDouble("providers.nvidia.temperature", 0.5);
+                getLogger().info("Using NVIDIA provider (model=" + model + ")");
+                return new NvidiaProvider(baseUrl, apiKey, model, temp, getLogger());
+            }
+            default: {
+                // gemini
+                String apiKey = getConfig().getString("providers.gemini.api-key", "");
+                String apiUrl = getConfig().getString("providers.gemini.api-url",
+                        "https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent");
+                double temp = getConfig().getDouble("providers.gemini.temperature", 0.5);
+                double topP = getConfig().getDouble("providers.gemini.top-p", 0.99);
+                if (apiKey.isEmpty()) {
+                    getLogger().severe("Gemini api-key is not set. Configure 'providers.gemini.api-key' in config.yml.");
+                }
+                getLogger().info("Using Gemini provider (url=" + apiUrl + ")");
+                return new GeminiProvider(apiKey, apiUrl, temp, topP, getLogger());
+            }
         }
     }
 
-    public String getPromptBody(String prompt) {
-        // Create prompt for generating summary in document language
-        JSONObject promptJson = new JSONObject();
+    private List<AgentTool> buildTools() {
+        List<AgentTool> tools = new ArrayList<>();
 
-        // Array to contain all the content-related data, including the text and role
-        JSONArray contentsArray = new JSONArray();
-        JSONObject contentsObject = new JSONObject();
-        contentsObject.put("role", "user");
+        if (getConfig().getBoolean("tools.web-search.enabled", true)) {
+            String braveKey = getConfig().getString("tools.web-search.api-key", "");
+            if (!braveKey.isEmpty()) {
+                int maxResults = getConfig().getInt("tools.web-search.max-results", 3);
+                tools.add(new BraveSearchTool(braveKey, maxResults, getLogger()));
+                getLogger().info("Web search tool enabled.");
+            } else {
+                getLogger().info("Web search tool disabled (no api-key set).");
+            }
+        }
 
-        // Array to hold the specific parts (or sections) of the user's input text
-        JSONArray partsArray = new JSONArray();
-        JSONObject partsObject = new JSONObject();
-        partsObject.put("text", prompt);
-        partsArray.add(partsObject);
-        contentsObject.put("parts", partsArray);
+        if (getConfig().getBoolean("tools.minecraft-wiki.enabled", true)) {
+            int maxResults = getConfig().getInt("tools.minecraft-wiki.max-results", 3);
+            tools.add(new MinecraftWikiTool(maxResults));
+            getLogger().info("Minecraft wiki tool enabled.");
+        }
 
-        contentsArray.add(contentsObject);
-        promptJson.put("contents", contentsArray);
-
-        // Array to hold various safety setting objects to ensure the content is safe and appropriate
-        JSONArray safetySettingsArray = new JSONArray();
-
-        // Creating and setting generation configuration parameters such as temperature and topP
-        JSONObject parametersJson = new JSONObject();
-        parametersJson.put("temperature", 0.5);
-        parametersJson.put("topP", 0.99);
-        promptJson.put("generationConfig", parametersJson);
-
-        // Convert the JSON object to a JSON string
-        return promptJson.toJSONString();
+        return tools;
     }
 
-    public String parseGeminiResponse(String jsonResponse) throws IOException, ParseException {
-        // Parse the JSON string
-        JSONObject jsonObject = (JSONObject) new JSONParser().parse(jsonResponse);
+    @EventHandler
+    public void onPlayerChat(AsyncChatEvent event) {
+        String message = PlainTextComponentSerializer.plainText().serialize(event.message());
+        if (!message.startsWith("!ask")) return;
 
-        // Get the "candidates" array
-        JSONArray candidatesArray = (JSONArray) jsonObject.get("candidates");
+        if (!event.getPlayer().hasPermission("aichatbuddy.ask")) {
+            event.getPlayer().sendMessage(Component.text("You don't have permission to use !ask.", NamedTextColor.RED));
+            return;
+        }
 
-        // Assuming there's only one candidate (index 0), extract its content
-        JSONObject candidateObject = (JSONObject) candidatesArray.get(0);
-        JSONObject contentObject = (JSONObject) candidateObject.get("content");
+        String question = message.substring(4).trim();
+        if (question.isEmpty()) {
+            event.getPlayer().sendMessage(Component.text("Usage: !ask <your question>", NamedTextColor.RED));
+            return;
+        }
 
-        // Get the "parts" array within the content
-        JSONArray partsArray = (JSONArray) contentObject.get("parts");
+        if (privateMessages) {
+            event.setCancelled(true);
+        }
 
-        // Assuming there's only one part (index 0), extract its text
-        JSONObject partObject = (JSONObject) partsArray.get(0);
-        String responseText = (String) partObject.get("text");
+        UUID playerId = event.getPlayer().getUniqueId();
+        String playerName = event.getPlayer().getName();
+        getLogger().info(playerName + " asked: " + question);
 
-        return responseText;
+        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            String answer = agentLoop.ask(playerId, question, promptTemplate);
+            getServer().getScheduler().runTask(this, () -> {
+                Component response = Component.text("\n")
+                        .append(Component.text("[" + botName + "]", NamedTextColor.RED))
+                        .append(Component.text(" " + answer));
+                if (privateMessages) {
+                    event.getPlayer().sendMessage(response);
+                } else {
+                    getServer().broadcast(response);
+                }
+            });
+        });
     }
 }

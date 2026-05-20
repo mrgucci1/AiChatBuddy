@@ -1,0 +1,26 @@
+name: AiChatBuddy
+version: '${version}'
+main: io.github.mrgucci1.aiChatBuddy.AiChatBuddy
+api-version: '${apiVersion}'
+load: STARTUP
+author: mrgucci1
+description: AI chat assistant powered by Gemini, Ollama, or NVIDIA with agentic tool use
+
+commands:
+  aichat:
+    description: Manage AiChatBuddy settings and conversation history
+    usage: /aichat <reload|forget [player]>
+
+permissions:
+  aichatbuddy.ask:
+    description: Allows using !ask in chat
+    default: true
+  aichatbuddy.reload:
+    description: Allows /aichat reload
+    default: op
+  aichatbuddy.forget.self:
+    description: Allows /aichat forget (clears own history)
+    default: true
+  aichatbuddy.forget.others:
+    description: Allows /aichat forget <player>
+    default: op
