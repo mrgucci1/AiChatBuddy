@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'io.github.mrgucci1'
-version = '1.3'
+version = '1.4'
 
 repositories {
     mavenCentral()
@@ -18,12 +18,12 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.64-stable")
+    compileOnly("io.papermc.paper:paper-api:26.2.build.102-stable")
     compileOnly("com.googlecode.json-simple:json-simple:1.1.1")
 }
 
 def targetJavaVersion = 25
-def apiVersion = '1.21'
+def apiVersion = '26.2'
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
