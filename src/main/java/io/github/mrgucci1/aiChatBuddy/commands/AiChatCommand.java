@@ -1,6 +1,7 @@
 package io.github.mrgucci1.aiChatBuddy.commands;
 
 import io.github.mrgucci1.aiChatBuddy.AiChatBuddy;
+import io.github.mrgucci1.aiChatBuddy.memory.MemoryStore;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -9,6 +10,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.List;
 import java.util.UUID;
 
 
@@ -23,7 +25,7 @@ public class AiChatCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(Component.text("Usage: /aichat <reload|forget [player]>", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Usage: /aichat <reload|forget [player]|memory <list|forget <index>|clear>>", NamedTextColor.RED));
             return true;
         }
 
@@ -67,8 +69,65 @@ public class AiChatCommand implements CommandExecutor {
                 }
                 return true;
 
+            case "memory":
+                if (!sender.hasPermission("aichatbuddy.memory")) {
+                    sender.sendMessage(Component.text("You don't have permission to manage AiChatBuddy's memory.", NamedTextColor.RED));
+                    return true;
+                }
+                return handleMemory(sender, args);
+
             default:
-                sender.sendMessage(Component.text("Unknown sub-command. Usage: /aichat <reload|forget [player]>", NamedTextColor.RED));
+                sender.sendMessage(Component.text("Unknown sub-command. Usage: /aichat <reload|forget [player]|memory <list|forget <index>|clear>>", NamedTextColor.RED));
+                return true;
+        }
+    }
+
+    private boolean handleMemory(CommandSender sender, String[] args) {
+        MemoryStore memory = plugin.getMemoryStore();
+        if (memory == null) {
+            sender.sendMessage(Component.text("Memory is disabled (memory.enabled: false in config.yml).", NamedTextColor.RED));
+            return true;
+        }
+
+        String sub = args.length >= 2 ? args[1].toLowerCase() : "list";
+        switch (sub) {
+            case "list": {
+                List<String> notes = memory.getAll();
+                if (notes.isEmpty()) {
+                    sender.sendMessage(Component.text("Memory is empty.", NamedTextColor.YELLOW));
+                    return true;
+                }
+                sender.sendMessage(Component.text("Saved memory (" + notes.size() + "):", NamedTextColor.GOLD));
+                for (int i = 0; i < notes.size(); i++) {
+                    sender.sendMessage(Component.text((i + 1) + ". " + notes.get(i), NamedTextColor.WHITE));
+                }
+                return true;
+            }
+            case "forget": {
+                if (args.length < 3) {
+                    sender.sendMessage(Component.text("Usage: /aichat memory forget <index>", NamedTextColor.RED));
+                    return true;
+                }
+                int index;
+                try {
+                    index = Integer.parseInt(args[2]);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage(Component.text("Index must be a number.", NamedTextColor.RED));
+                    return true;
+                }
+                if (memory.forget(index)) {
+                    sender.sendMessage(Component.text("Removed memory entry " + index + ".", NamedTextColor.GREEN));
+                } else {
+                    sender.sendMessage(Component.text("No memory entry at index " + index + ".", NamedTextColor.RED));
+                }
+                return true;
+            }
+            case "clear":
+                memory.clear();
+                sender.sendMessage(Component.text("Cleared all saved memory.", NamedTextColor.GREEN));
+                return true;
+            default:
+                sender.sendMessage(Component.text("Usage: /aichat memory <list|forget <index>|clear>", NamedTextColor.RED));
                 return true;
         }
     }

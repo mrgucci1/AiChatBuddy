@@ -12,18 +12,23 @@ public interface AgentTool {
     String execute(JSONObject args) throws IOException;
 
     /** Builds a standard single-string "query" parameter schema for tools that take one search term. */
-    @SuppressWarnings("unchecked")
     static JSONObject singleQuerySchema(String queryDescription) {
+        return singleParamSchema("query", queryDescription);
+    }
+
+    /** Builds a single-string parameter schema with a caller-chosen parameter name. */
+    @SuppressWarnings("unchecked")
+    static JSONObject singleParamSchema(String paramName, String paramDescription) {
         JSONObject schema = new JSONObject();
         schema.put("type", "object");
         JSONObject props = new JSONObject();
-        JSONObject queryProp = new JSONObject();
-        queryProp.put("type", "string");
-        queryProp.put("description", queryDescription);
-        props.put("query", queryProp);
+        JSONObject prop = new JSONObject();
+        prop.put("type", "string");
+        prop.put("description", paramDescription);
+        props.put(paramName, prop);
         schema.put("properties", props);
         JSONArray required = new JSONArray();
-        required.add("query");
+        required.add(paramName);
         schema.put("required", required);
         return schema;
     }

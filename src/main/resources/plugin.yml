@@ -8,8 +8,8 @@ description: AI chat assistant powered by Gemini, Ollama, or NVIDIA with agentic
 
 commands:
   aichat:
-    description: Manage AiChatBuddy settings and conversation history
-    usage: /aichat <reload|forget [player]>
+    description: Manage AiChatBuddy settings, conversation history, and memory
+    usage: /aichat <reload|forget [player]|memory <list|forget <index>|clear>>
 
 permissions:
   aichatbuddy.ask:
@@ -23,4 +23,7 @@ permissions:
     default: true
   aichatbuddy.forget.others:
     description: Allows /aichat forget <player>
+    default: op
+  aichatbuddy.memory:
+    description: Allows /aichat memory <list|forget|clear>
     default: op

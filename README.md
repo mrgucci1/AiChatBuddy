@@ -2,7 +2,7 @@
 
 An AI chat assistant for PaperMC servers. Players ask questions in chat with `!ask <question>` and a configurable AI persona ("Notch" by default) answers, optionally calling tools to fetch live information.
 
-Supports three providers — **Gemini** (default), **Ollama** (local or cloud), and **NVIDIA NIM** — with agentic tool use for **web search** (Brave) and the **Minecraft Wiki**.
+Supports three providers — **Gemini** (default), **Ollama** (local or cloud), and **NVIDIA NIM** — with agentic tool use for **web search** (Brave), the **Minecraft Wiki**, and a persistent **memory** the bot can save notes to.
 
 ## Examples
 
@@ -68,6 +68,10 @@ tools:
   minecraft-wiki:
     enabled: true
     max-results: 3
+
+memory:
+  enabled: true
+  max-entries: 50        # oldest notes are dropped once this many are saved; 0 = unlimited
 ```
 
 You only need to fill in the api-keys for the provider(s) and tool(s) you want to use. Unconfigured providers/tools are simply skipped.
@@ -142,6 +146,9 @@ Switch providers at any time by editing `provider:` and running `/aichat reload`
 | `/aichat reload` | `aichatbuddy.reload` (default: op) | Reload `config.yml` and clear in-memory history. |
 | `/aichat forget` | `aichatbuddy.forget.self` (default: everyone) | Clear your own conversation history. |
 | `/aichat forget <player>` | `aichatbuddy.forget.others` (default: op) | Clear another player's history. |
+| `/aichat memory list` | `aichatbuddy.memory` (default: op) | List saved memory notes. |
+| `/aichat memory forget <index>` | `aichatbuddy.memory` (default: op) | Remove one saved note. |
+| `/aichat memory clear` | `aichatbuddy.memory` (default: op) | Clear all saved memory. |
 
 ---
 
@@ -162,6 +169,17 @@ Output: `build/libs/AiChatBuddy-<version>.jar`.
 When the bot decides a tool is needed it emits a function call; the plugin runs the tool, feeds the result back, and lets the model loop until it either (a) emits a text reply or (b) hits `agent-max-steps`. If the limit is hit, the plugin asks the model to synthesise a best-effort answer with what it already has — players never see "I ran out of tool calls" errors.
 
 Tool results are intentionally **not** persisted in per-player history. Only the player's question and the final assistant reply are stored, which prevents stale tool transcripts from polluting future turns and avoids the Gemini `function_response must immediately follow function_call` error class entirely.
+
+---
+
+## Memory
+
+Unlike per-player conversation history (cleared on `/aichat reload`), memory is a small set of notes stored in `plugins/AiChatBuddy/memory.txt` that persist across restarts and are shared by every player. The bot has a `save_memory` tool it can call:
+
+- When a player explicitly asks it to remember, save, or note something.
+- Right after `web_search` or `minecraft_wiki` reveals it was wrong or out of date (e.g. a game update it didn't know about) — it saves a note about what changed so it knows to look it up again next time instead of trusting stale knowledge.
+
+Manage saved notes with `/aichat memory <list|forget <index>|clear>`, or disable the feature entirely with `memory.enabled: false` in `config.yml`.
 
 ---
 

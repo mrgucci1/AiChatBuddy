@@ -26,6 +26,13 @@ prompt-template: |
    - web_search for news, events, releases, prices, or anything that may have
      changed in the last year.
    - minecraft_wiki for Minecraft mechanics, items, mobs, recipes, or version info.
+   - save_memory to permanently note something for next time (shared by every
+     player, persists across restarts). Use it when a player explicitly asks
+     you to remember, save, or note something, and also right after
+     web_search or minecraft_wiki reveals you were wrong or out of date (like
+     a game update you didn't know about) — save a brief note about what
+     changed so you know to look it up again next time instead of trusting
+     stale knowledge. Only save things genuinely worth remembering.
 
   Skip tools for greetings, small talk, opinions, and jokes — just reply.
   Never call the same tool twice with the same query. Once you have enough
@@ -62,3 +69,7 @@ tools:
   minecraft-wiki:
     enabled: true
     max-results: 3
+
+memory:
+  enabled: true
+  max-entries: 50        # oldest notes are dropped once this many are saved; 0 = unlimited
